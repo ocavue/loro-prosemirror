@@ -1,19 +1,20 @@
-import { Loro, LoroEventBatch } from "loro-crdt";
+import { Loro, type LoroEventBatch } from "loro-crdt";
 import {
   Plugin,
   PluginKey,
-  StateField,
+  type StateField,
   EditorState,
 } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { Slice, Fragment } from "prosemirror-model";
 import {
-  LoroDocType,
-  LoroNodeMapping,
+  type LoroDocType,
+  type LoroNodeMapping,
   clearChangedNodes,
   createNodeFromLoroObj,
   updateLoroToPmState,
 } from "./lib";
+import { configLoroTextStyle } from "./text-style";
 
 export const loroSyncPluginKey = new PluginKey<LoroSyncPluginState>("loro-sync");
 
@@ -52,11 +53,15 @@ export const LoroSyncPlugin = (props: LoroSyncPluginProps): Plugin => {
       },
     },
     state: {
-      init: (config, editorState): LoroSyncPluginState => ({
-        doc: props.doc,
-        mapping: props.mapping ?? new Map(),
-        changedBy: "local"
-      }),
+      init: (config, editorState): LoroSyncPluginState => {
+        configLoroTextStyle(props.doc, editorState.schema);
+
+        return {
+          doc: props.doc,
+          mapping: props.mapping ?? new Map(),
+          changedBy: "local"
+        }
+      },
       apply: (tr, state, oldEditorState, newEditorState) => {
         const meta = tr.getMeta(
           loroSyncPluginKey,
@@ -68,7 +73,7 @@ export const LoroSyncPlugin = (props: LoroSyncPluginProps): Plugin => {
         }
         switch (meta?.type) {
           case "doc-changed":
-            updateLoroToPmState(state.doc as LoroDocType, state.mapping, oldEditorState, newEditorState);
+            updateLoroToPmState(state.doc as LoroDocType, state.mapping, newEditorState);
             break;
           case "update-state":
             state = { ...state, ...meta.state };

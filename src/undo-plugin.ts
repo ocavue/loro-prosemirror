@@ -1,12 +1,12 @@
 import type { Cursor } from "loro-crdt";
 import { Loro, UndoManager } from "loro-crdt";
 import {
+  type Command,
   EditorState,
   Plugin,
   PluginKey,
-  StateField,
+  type StateField,
   TextSelection,
-  Transaction,
 } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import {
@@ -14,6 +14,7 @@ import {
   cursorToAbsolutePosition,
 } from "./cursor-plugin";
 import { loroSyncPluginKey } from "./sync-plugin";
+import { configLoroTextStyle } from "./text-style";
 
 export interface LoroUndoPluginProps {
   doc: Loro;
@@ -41,6 +42,8 @@ export const LoroUndoPlugin = (props: LoroUndoPluginProps): Plugin => {
     key: loroUndoPluginKey,
     state: {
       init: (config, editorState): LoroUndoPluginState => {
+        configLoroTextStyle(props.doc, editorState.schema);
+
         undoManager.addExcludeOriginPrefix("sys:init");
         return {
           undoManager,
@@ -177,38 +180,26 @@ export function canRedo(state: EditorState): boolean {
   return undoState?.undoManager.canRedo() || false;
 }
 
-export function undo(
-  state: EditorState,
-  dispatch: (tr: Transaction) => void,
-): boolean {
+export const undo: Command = (state, dispatch): boolean => {
   const undoState = loroUndoPluginKey.getState(state);
-  if (!undoState || !undoState.undoManager.canUndo()) {
+  if (!undoState) {
     return false;
   }
-
-  if (!undoState.undoManager.undo()) {
-    const emptyTr = state.tr;
-    dispatch(emptyTr);
-    return false;
+  if (dispatch) {
+    return undoState.undoManager.undo();
+  } else {
+    return undoState.undoManager.canUndo();
   }
+};
 
-  return true;
-}
-
-export function redo(
-  state: EditorState,
-  dispatch: (tr: Transaction) => void,
-): boolean {
+export const redo: Command = (state, dispatch): boolean => {
   const undoState = loroUndoPluginKey.getState(state);
-  if (!undoState || !undoState.undoManager.canRedo()) {
+  if (!undoState) {
     return false;
   }
-
-  if (!undoState.undoManager.redo()) {
-    const emptyTr = state.tr;
-    dispatch(emptyTr);
-    return false;
+  if (dispatch) {
+    return undoState.undoManager.redo();
+  } else {
+    return undoState.undoManager.canRedo();
   }
-
-  return true;
-}
+};
